@@ -1,15 +1,13 @@
 ﻿using System;
 using UnityEngine;
 using System.Collections;
+using UnityEngine.UI;
 #if UNITY_IOS || UNITY_ANDROID
 using UnityEngine.Advertisements;
 #endif
 
 public class UnityAdsHelper : MonoBehaviour
 {
-	public string iosGameID = "24300";
-	public string androidGameID = "24299";
-
 	public bool enableTestMode = true;
 	public bool showInfoLogs;
 	public bool showDebugLogs;
@@ -21,22 +19,37 @@ public class UnityAdsHelper : MonoBehaviour
 	private static Action _handleFailed;
 	private static Action _onContinue;
 
-#if UNITY_IOS || UNITY_ANDROID
-
 	//--- Unity Ads Setup and Initialization
 
-	void Start ()
+	Text textMessage;
+	void Start()
 	{
-		Debug.Log("Running precheck for Unity Ads initialization...");
+		textMessage = GameObject.Find("Canvas/Text").GetComponent<Text>();
+	}
 
-		string gameID = null;
 
-#if UNITY_IOS
-		gameID = iosGameID;
-#elif UNITY_ANDROID
-		gameID = androidGameID;
-#endif
+	public void OnButtonInit()
+	{
+		InputField field = GameObject.Find("InputField").GetComponent<InputField>();
 
+		string gameId = field.text;
+
+		if (string.IsNullOrEmpty(gameId))
+			return;
+
+		InitWithGameID(gameId);
+
+		Destroy(GameObject.Find("ButtonInit"));
+
+	}
+
+	public void OnButtonShow()
+	{
+		ShowAd();
+	}
+
+	private void InitWithGameID(string gameID)
+	{
 		if (!Advertisement.isSupported)
 		{
 			Debug.LogWarning("Unity Ads is not supported on the current runtime platform.");
@@ -51,35 +64,45 @@ public class UnityAdsHelper : MonoBehaviour
 		}
 		else
 		{
-			Advertisement.debugLevel = Advertisement.DebugLevel.NONE;	
-			if (showInfoLogs) Advertisement.debugLevel    |= Advertisement.DebugLevel.INFO;
-			if (showDebugLogs) Advertisement.debugLevel   |= Advertisement.DebugLevel.DEBUG;
-			if (showWarningLogs) Advertisement.debugLevel |= Advertisement.DebugLevel.WARNING;
-			if (showErrorLogs) Advertisement.debugLevel   |= Advertisement.DebugLevel.ERROR;
-			
+			Advertisement.debugLevel = Advertisement.DebugLevel.None;
+			if (showInfoLogs) Advertisement.debugLevel |= Advertisement.DebugLevel.Info;
+			if (showDebugLogs) Advertisement.debugLevel |= Advertisement.DebugLevel.Debug;
+			if (showWarningLogs) Advertisement.debugLevel |= Advertisement.DebugLevel.Warning;
+			if (showErrorLogs) Advertisement.debugLevel |= Advertisement.DebugLevel.Error;
+
 			if (enableTestMode && !Debug.isDebugBuild)
 			{
 				Debug.LogWarning("Development Build must be enabled in Build Settings to enable test mode for Unity Ads.");
 			}
-			
+
 			bool isTestModeEnabled = Debug.isDebugBuild && enableTestMode;
 			Debug.Log(string.Format("Precheck done. Initializing Unity Ads for game ID {0} with test mode {1}...",
-			                        gameID, isTestModeEnabled ? "enabled" : "disabled"));
+									gameID, isTestModeEnabled ? "enabled" : "disabled"));
 
-			Advertisement.Initialize(gameID,isTestModeEnabled);
+			Advertisement.Initialize(gameID, isTestModeEnabled);
 
 			StartCoroutine(LogWhenUnityAdsIsInitialized());
 		}
 	}
 
+#if UNITY_IOS || UNITY_ANDROID
+
 	private IEnumerator LogWhenUnityAdsIsInitialized ()
 	{
 		float initStartTime = Time.time;
 
-		do yield return new WaitForSeconds(0.1f);
-		while (!Advertisement.isInitialized);
+		do
+		{
+			yield return new WaitForSeconds(0.1f);
+			
+			textMessage.text = string.Format("Initializing {0:F1} seconds.", Time.time - initStartTime);
+			Debug.Log(textMessage.text);
 
-		Debug.Log(string.Format("Unity Ads was initialized in {0:F1} seconds.",Time.time - initStartTime));
+		} while (!Advertisement.isInitialized);
+
+		textMessage.text = string.Format("Initialized in {0:F1} seconds.", Time.time - initStartTime);
+		Debug.Log(textMessage.text);
+
 		yield break;
 	}
 	
@@ -97,7 +120,7 @@ public class UnityAdsHelper : MonoBehaviour
 	{
 		if (string.IsNullOrEmpty(zoneID)) zoneID = null;
 		
-		return Advertisement.isReady(zoneID);
+		return Advertisement.IsReady(zoneID);
 	}
 
 	public static void ShowAd () 
@@ -129,13 +152,13 @@ public class UnityAdsHelper : MonoBehaviour
 		_handleFailed = handleFailed;
 		_onContinue = onContinue;
 
-		if (Advertisement.isReady(zoneID))
+		if (Advertisement.IsReady(zoneID))
 		{
 			Debug.Log("Showing ad now...");
 			
 			ShowOptions options = new ShowOptions();
 			options.resultCallback = HandleShowResult;
-			options.pause = true;
+			//options.pause = true;
 
 			Advertisement.Show(zoneID,options);
 		}
